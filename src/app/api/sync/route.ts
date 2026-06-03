@@ -1,5 +1,5 @@
 export const dynamic = 'force-static'
 
-export async function POST() {
-  return new Response('Not available in static build', { status: 404 })
+export async function GET() {
+  return new Response(null, { status: 404 })
 }
