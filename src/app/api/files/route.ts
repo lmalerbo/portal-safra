@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
-import { readFileSync } from 'fs'
-import { join } from 'path'
+import { listProjectFiles } from '@/lib/sharepoint'
+
+export const revalidate = 0
 
 export async function GET() {
   try {
-    const raw = readFileSync(join(process.cwd(), 'data', 'files.json'), 'utf-8')
-    const files = JSON.parse(raw)
+    const files = listProjectFiles()
     return NextResponse.json({ files })
-  } catch {
-    return NextResponse.json({ files: [] })
+  } catch (err) {
+    console.error('[/api/files]', err)
+    return NextResponse.json(
+      { error: 'Não foi possível ler a pasta de projetos. Verifique FILES_PATH no .env.local.' },
+      { status: 500 }
+    )
   }
 }

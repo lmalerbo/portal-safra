@@ -1,29 +1,30 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { fetchSharePointFile } from '@/lib/sharepoint'
+import { createReadStream, existsSync, statSync } from 'fs'
+import { join, basename } from 'path'
+import { Readable } from 'stream'
 
 export async function GET(request: NextRequest) {
-  const path = request.nextUrl.searchParams.get('path')
-  if (!path) {
-    return NextResponse.json({ error: 'path obrigatório' }, { status: 400 })
+  const name = request.nextUrl.searchParams.get('file') ?? ''
+
+  // Bloqueia path traversal e extensões indevidas
+  const safe = basename(name)
+  if (!safe.toLowerCase().endsWith('.zip') || safe !== name) {
+    return NextResponse.json({ error: 'Arquivo inválido' }, { status: 400 })
   }
 
-  try {
-    const spRes = await fetchSharePointFile(path)
-    if (!spRes.ok) {
-      return NextResponse.json({ error: 'Arquivo não encontrado no SharePoint' }, { status: 404 })
-    }
+  const filePath = join(process.env.FILES_PATH!, safe)
+  if (!existsSync(filePath)) {
+    return NextResponse.json({ error: 'Arquivo não encontrado' }, { status: 404 })
+  }
 
-    const filename = path.split('/').pop() ?? 'arquivo.zip'
-    const headers = new Headers({
+  const { size } = statSync(filePath)
+  const stream = Readable.toWeb(createReadStream(filePath)) as ReadableStream
+
+  return new NextResponse(stream, {
+    headers: {
       'Content-Type': 'application/zip',
-      'Content-Disposition': `attachment; filename="${filename}"`,
-    })
-    const contentLength = spRes.headers.get('Content-Length')
-    if (contentLength) headers.set('Content-Length', contentLength)
-
-    return new NextResponse(spRes.body, { headers })
-  } catch (error) {
-    console.error('[/api/download]', error)
-    return NextResponse.json({ error: 'Erro ao baixar arquivo' }, { status: 500 })
-  }
+      'Content-Disposition': `attachment; filename="${safe}"`,
+      'Content-Length': String(size),
+    },
+  })
 }

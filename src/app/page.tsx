@@ -2,9 +2,8 @@
 
 import { useEffect, useMemo, useState } from 'react'
 
-interface SharePointFile {
+interface ProjectFile {
   name: string
-  downloadUrl: string
   size: number
   farmCode: string
   farmName: string
@@ -16,8 +15,68 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const BOOKMARKLET = `javascript:(async()=>{const F='/sites/EquipeGeotecnologia_Pedra/Shared%20Documents/Projetos/Colheita/exportacao';const B='https://uspedracombr.sharepoint.com';const r=await fetch('/sites/EquipeGeotecnologia_Pedra/_api/web/GetFolderByServerRelativeUrl(\''+F+'\')/Files?$select=Name,Length&$orderby=Name&$top=500',{headers:{Accept:'application/json;odata=verbose'},credentials:'include'});const d=await r.json();const rx=/^(\\d+)_(.+?)_Exp([12])L\\.zip$/i;const files=d.d.results.filter(f=>f.Name.toLowerCase().endsWith('.zip')).map(f=>{const m=f.Name.match(rx);if(!m)return null;return{name:f.Name,farmCode:m[1],farmName:m[2],lineType:m[3]+'L',size:parseInt(f.Length||'0',10),downloadUrl:B+F+'/'+encodeURIComponent(f.Name)+'?download=1'};}).filter(Boolean).sort((a,b)=>a.farmName.localeCompare(b.farmName,'pt-BR'));const blob=new Blob([JSON.stringify(files,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='files.json';a.click();alert(files.length+' arquivos encontrados!\\nSubstitua o arquivo data/files.json do portal pelo arquivo baixado.');})();`
+
+function SyncButton() {
+  const [open, setOpen] = useState(false)
+
+  return (
+    <div className="relative flex-shrink-0">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
+      >
+        Atualizar arquivos
+      </button>
+
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-10 z-20 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-4 text-left">
+            <h3 className="font-semibold text-gray-800 text-sm mb-3">Atualizar lista de projetos</h3>
+
+            <ol className="space-y-3 text-sm text-gray-600">
+              <li className="flex gap-2">
+                <span className="font-bold text-green-600 flex-shrink-0">1.</span>
+                <span>Arraste o botão abaixo para a barra de favoritos do browser <span className="text-gray-400">(só precisa fazer uma vez)</span></span>
+              </li>
+              <li className="flex justify-center">
+                <a
+                  href={BOOKMARKLET}
+                  className="inline-block bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none"
+                  onClick={e => e.preventDefault()}
+                  draggable
+                >
+                  Atualizar Portal Safra
+                </a>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-green-600 flex-shrink-0">2.</span>
+                <span>Quando novos projetos forem adicionados, abra o SharePoint e clique no favorito</span>
+              </li>
+              <li className="flex gap-2">
+                <span className="font-bold text-green-600 flex-shrink-0">3.</span>
+                <span>O arquivo <code className="bg-gray-100 px-1 rounded">files.json</code> vai baixar — substitua o <code className="bg-gray-100 px-1 rounded">data/files.json</code> do projeto</span>
+              </li>
+            </ol>
+
+            <a
+              href="https://uspedracombr.sharepoint.com/sites/EquipeGeotecnologia_Pedra"
+              target="_blank"
+              rel="noreferrer"
+              className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-green-700 hover:text-green-900 font-medium"
+            >
+              Abrir SharePoint ↗
+            </a>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 export default function Home() {
-  const [files, setFiles] = useState<SharePointFile[]>([])
+  const [files, setFiles] = useState<ProjectFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [selectedFarms, setSelectedFarms] = useState<Set<string>>(new Set())
@@ -43,7 +102,10 @@ export default function Home() {
 
   const filteredFarms = useMemo(() => {
     if (!search) return farms
-    return farms.filter(([, name]) => name.toLowerCase().includes(search.toLowerCase()))
+    const q = search.toLowerCase()
+    return farms.filter(([code, name]) =>
+      name.toLowerCase().includes(q) || code.includes(q)
+    )
   }, [farms, search])
 
   const results = useMemo(() => {
@@ -72,13 +134,13 @@ export default function Home() {
       {/* Header */}
       <header className="bg-green-700 text-white shadow-lg">
         <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm">
+          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
             <svg className="w-6 h-6 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
             </svg>
           </div>
-          <div>
+          <div className="flex-1">
             <h1 className="text-xl font-bold leading-tight">Portal Safra</h1>
             <p className="text-green-200 text-xs">Projetos de Colheita</p>
           </div>
@@ -151,7 +213,7 @@ export default function Home() {
 
                   <input
                     type="text"
-                    placeholder="Buscar fazenda..."
+                    placeholder="Buscar por nome ou código..."
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     className="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
@@ -247,9 +309,7 @@ export default function Home() {
 
                       {/* Download */}
                       <a
-                        href={file.downloadUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`/api/download?file=${encodeURIComponent(file.name)}`}
                         download={file.name}
                         className="flex-shrink-0 inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                       >
