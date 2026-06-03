@@ -26,10 +26,11 @@ export default function Home() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    fetch('./files.json')
+    fetch('/api/files')
       .then((r) => r.json())
       .then((data) => {
-        setFiles(Array.isArray(data) ? data : data.files ?? [])
+        if (data.error) throw new Error(data.error)
+        setFiles(data.files ?? [])
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -250,9 +251,7 @@ export default function Home() {
 
                       {/* Download */}
                       <a
-                        href={file.downloadUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                        href={`/api/download?file=${encodeURIComponent(file.name)}`}
                         download={file.name}
                         className="flex-shrink-0 inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                       >

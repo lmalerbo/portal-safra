@@ -1,10 +1,4 @@
 /** @type {import('next').NextConfig} */
-const config = {
-  output: 'export',
-  trailingSlash: true,
-  images: { unoptimized: true },
-  basePath: '/portal-safra',
-  assetPrefix: '/portal-safra',
-}
+const config = {}
 
 module.exports = config
