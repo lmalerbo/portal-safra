@@ -26,7 +26,7 @@ export default function Home() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    fetch('/files.json')
+    fetch('./files.json')
       .then((r) => r.json())
       .then((data) => {
         setFiles(Array.isArray(data) ? data : data.files ?? [])
