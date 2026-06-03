@@ -1,4 +1,8 @@
 /** @type {import('next').NextConfig} */
-const config = {}
+const config = {
+  output: 'export',
+  trailingSlash: true,
+  images: { unoptimized: true },
+}
 
 module.exports = config

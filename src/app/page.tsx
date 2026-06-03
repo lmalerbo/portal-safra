@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from 'react'
 interface ProjectFile {
   name: string
   size: number
+  downloadUrl: string
   farmCode: string
   farmName: string
   lineType: '1L' | '2L'
@@ -15,65 +16,6 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-const BOOKMARKLET = `javascript:(async()=>{const F='/sites/EquipeGeotecnologia_Pedra/Shared%20Documents/Projetos/Colheita/exportacao';const B='https://uspedracombr.sharepoint.com';const r=await fetch('/sites/EquipeGeotecnologia_Pedra/_api/web/GetFolderByServerRelativeUrl(\''+F+'\')/Files?$select=Name,Length&$orderby=Name&$top=500',{headers:{Accept:'application/json;odata=verbose'},credentials:'include'});const d=await r.json();const rx=/^(\\d+)_(.+?)_Exp([12])L\\.zip$/i;const files=d.d.results.filter(f=>f.Name.toLowerCase().endsWith('.zip')).map(f=>{const m=f.Name.match(rx);if(!m)return null;return{name:f.Name,farmCode:m[1],farmName:m[2],lineType:m[3]+'L',size:parseInt(f.Length||'0',10),downloadUrl:B+F+'/'+encodeURIComponent(f.Name)+'?download=1'};}).filter(Boolean).sort((a,b)=>a.farmName.localeCompare(b.farmName,'pt-BR'));const blob=new Blob([JSON.stringify(files,null,2)],{type:'application/json'});const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='files.json';a.click();alert(files.length+' arquivos encontrados!\\nSubstitua o arquivo data/files.json do portal pelo arquivo baixado.');})();`
-
-function SyncButton() {
-  const [open, setOpen] = useState(false)
-
-  return (
-    <div className="relative flex-shrink-0">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="text-xs font-medium px-3 py-1.5 rounded-lg bg-white/20 hover:bg-white/30 text-white transition-colors"
-      >
-        Atualizar arquivos
-      </button>
-
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-10 z-20 w-80 bg-white rounded-xl shadow-xl border border-gray-100 p-4 text-left">
-            <h3 className="font-semibold text-gray-800 text-sm mb-3">Atualizar lista de projetos</h3>
-
-            <ol className="space-y-3 text-sm text-gray-600">
-              <li className="flex gap-2">
-                <span className="font-bold text-green-600 flex-shrink-0">1.</span>
-                <span>Arraste o botão abaixo para a barra de favoritos do browser <span className="text-gray-400">(só precisa fazer uma vez)</span></span>
-              </li>
-              <li className="flex justify-center">
-                <a
-                  href={BOOKMARKLET}
-                  className="inline-block bg-green-600 hover:bg-green-700 text-white text-xs font-semibold px-4 py-2 rounded-lg cursor-grab active:cursor-grabbing select-none"
-                  onClick={e => e.preventDefault()}
-                  draggable
-                >
-                  Atualizar Portal Safra
-                </a>
-              </li>
-              <li className="flex gap-2">
-                <span className="font-bold text-green-600 flex-shrink-0">2.</span>
-                <span>Quando novos projetos forem adicionados, abra o SharePoint e clique no favorito</span>
-              </li>
-              <li className="flex gap-2">
-                <span className="font-bold text-green-600 flex-shrink-0">3.</span>
-                <span>O arquivo <code className="bg-gray-100 px-1 rounded">files.json</code> vai baixar — substitua o <code className="bg-gray-100 px-1 rounded">data/files.json</code> do projeto</span>
-              </li>
-            </ol>
-
-            <a
-              href="https://uspedracombr.sharepoint.com/sites/EquipeGeotecnologia_Pedra"
-              target="_blank"
-              rel="noreferrer"
-              className="mt-3 w-full flex items-center justify-center gap-1.5 text-xs text-green-700 hover:text-green-900 font-medium"
-            >
-              Abrir SharePoint ↗
-            </a>
-          </div>
-        </>
-      )}
-    </div>
-  )
-}
 
 export default function Home() {
   const [files, setFiles] = useState<ProjectFile[]>([])
@@ -84,11 +26,10 @@ export default function Home() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    fetch('/api/files')
+    fetch('/files.json')
       .then((r) => r.json())
       .then((data) => {
-        if (data.error) throw new Error(data.error)
-        setFiles(data.files)
+        setFiles(Array.isArray(data) ? data : data.files ?? [])
       })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
@@ -309,7 +250,9 @@ export default function Home() {
 
                       {/* Download */}
                       <a
-                        href={`/api/download?file=${encodeURIComponent(file.name)}`}
+                        href={file.downloadUrl}
+                        target="_blank"
+                        rel="noreferrer"
                         download={file.name}
                         className="flex-shrink-0 inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                       >
