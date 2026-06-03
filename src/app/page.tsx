@@ -219,7 +219,7 @@ export default function Home() {
                 <div className="space-y-2">
                   {results.map((file) => (
                     <div
-                      key={file.serverRelativeUrl}
+                      key={file.name}
                       className="bg-white rounded-xl border border-gray-100 px-4 py-3.5 flex items-center gap-4 hover:border-green-200 hover:shadow-sm transition-all"
                     >
                       {/* Ícone ZIP */}
