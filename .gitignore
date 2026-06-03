@@ -19,8 +19,9 @@ build/
 .vercel
 .azure/
 
-# sync script cache (token de autenticacao)
+# tokens e cache
 .token_cache.json
+.github_token
 
 # misc
 .DS_Store
