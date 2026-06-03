@@ -12,10 +12,17 @@ from pathlib import Path
 try:
     import msal, requests
 except ImportError:
-    import subprocess
+    import subprocess, site
     print("Instalando dependencias (msal, requests)...")
     subprocess.check_call([sys.executable, "-m", "pip", "install", "msal", "requests", "--user", "-q"])
-    import msal, requests
+    # adiciona o diretorio do usuario ao path da sessao atual
+    sys.path.insert(0, site.getusersitepackages())
+    try:
+        import msal, requests
+    except ImportError:
+        print("\nReiniciando o script para carregar os pacotes instalados...")
+        import os
+        os.execv(sys.executable, [sys.executable] + sys.argv)
 
 # --- configuracao ---
 TENANT_ID  = "9e23aa49-070c-41ff-8875-d0cf5489769f"
