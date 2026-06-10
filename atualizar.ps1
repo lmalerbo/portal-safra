@@ -8,7 +8,7 @@
 #   4. Commita e faz push -> GitHub Pages recompila automaticamente
 
 $FILES_PATH = "I:\Projetos\EXPORTAÇÃO SAFRA\Colheita\exportacao"
-$REPO       = "Lc4pr1o/portal-safra"
+$REPO       = "lmalerbo/portal-safra"
 $RELEASE    = "files"
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 

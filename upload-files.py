@@ -13,7 +13,7 @@ import os, json, re, sys, urllib.request, urllib.parse, urllib.error
 from pathlib import Path
 
 FILES_PATH  = Path(r"I:\Projetos\EXPORTAÇÃO SAFRA\Colheita\exportacao")
-REPO        = "Lc4pr1o/portal-safra"
+REPO        = "lmalerbo/portal-safra"
 RELEASE_TAG = "files"
 TOKEN_FILE  = Path(__file__).parent / ".github_token"
 
