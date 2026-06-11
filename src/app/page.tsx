@@ -245,7 +245,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={downloadAll}
-                      className="hidden sm:inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -258,19 +258,19 @@ export default function Home() {
 
                 {/* Filtro de linha (mobile) */}
                 {results.length > 0 && (
-                  <div className="flex gap-2 mb-3 md:hidden">
+                  <div className="flex gap-1.5 mb-3 md:hidden">
                     {(['all', '1L', '2L'] as const).map((v) => (
                       <button
                         key={v}
                         type="button"
                         onClick={() => setLineFilter(v)}
-                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                        className={`px-3 py-1 rounded-full text-xs font-medium transition-colors border ${
                           lineFilter === v
                             ? 'bg-gray-700 text-white border-gray-700'
                             : 'bg-white text-gray-600 border-gray-200'
                         }`}
                       >
-                        {v === 'all' ? 'Todos' : v === '1L' ? '1 Linha' : '2 Linha'}
+                        {v === 'all' ? 'Todos' : v}
                       </button>
                     ))}
                   </div>
@@ -327,24 +327,7 @@ export default function Home() {
         </div>
       </main>
 
-      {/* Barra fixa de download em lote (mobile) */}
-      {selected.size > 1 && (
-        <div className="sm:hidden fixed bottom-0 inset-x-0 p-3 bg-white border-t border-gray-200 shadow-lg">
-          <button
-            type="button"
-            onClick={downloadAll}
-            className="w-full inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-3 rounded-lg transition-colors"
-          >
-            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Baixar selecionados ({selected.size})
-          </button>
-        </div>
-      )}
-
-      <footer className={`text-center py-4 text-xs text-gray-400 border-t border-gray-100 ${selected.size > 1 ? 'pb-20 sm:pb-4' : ''}`}>
+      <footer className="text-center py-4 text-xs text-gray-400 border-t border-gray-100">
         Portal Safra — Projetos de Colheita
       </footer>
     </div>
