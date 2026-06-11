@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 
 interface ProjectFile {
   name: string
@@ -10,6 +10,9 @@ interface ProjectFile {
   farmName: string
   lineType: '1L' | '2L'
   updatedAt: string
+  dwgName?: string
+  dwgUrl?: string
+  dwgSize?: number
 }
 
 function formatSize(bytes: number): string {
@@ -26,7 +29,8 @@ function fileKey(f: ProjectFile): string {
 }
 
 const RELEASES_REPO = 'lmalerbo/Expo_safra'
-const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.zip$/i
+const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.(zip|dwg)$/i
+const DWG_STORAGE_KEY = 'portal-safra-dwg'
 
 function parseLinkHeader(header: string | null): Record<string, string> {
   const links: Record<string, string> = {}
@@ -51,24 +55,37 @@ async function fetchAllReleases(): Promise<any[]> {
 }
 
 function releasesToFiles(releases: any[]): ProjectFile[] {
-  const files: ProjectFile[] = []
+  const map = new Map<string, ProjectFile>()
   for (const release of releases) {
     for (const asset of release.assets ?? []) {
       const match = asset.name.match(ASSET_NAME_RE)
       if (!match) continue
-      const [, farmCode, rawName, lineType] = match
-      files.push({
-        name: asset.name,
-        size: asset.size,
-        downloadUrl: asset.browser_download_url,
+      const [, farmCode, rawName, lineTypeRaw, ext] = match
+      const lineType = lineTypeRaw.toUpperCase() as '1L' | '2L'
+      const key = `${farmCode}_${lineType}`
+      const entry: ProjectFile = map.get(key) ?? {
+        name: '',
+        size: 0,
+        downloadUrl: '',
         farmCode,
         farmName: rawName.replace(/\./g, ' '),
-        lineType: lineType.toUpperCase() as '1L' | '2L',
+        lineType,
         updatedAt: asset.updated_at,
-      })
+      }
+      if (ext.toLowerCase() === 'zip') {
+        entry.name = asset.name
+        entry.size = asset.size
+        entry.downloadUrl = asset.browser_download_url
+      } else {
+        entry.dwgName = asset.name
+        entry.dwgUrl = asset.browser_download_url
+        entry.dwgSize = asset.size
+      }
+      if (asset.updated_at > entry.updatedAt) entry.updatedAt = asset.updated_at
+      map.set(key, entry)
     }
   }
-  return files
+  return [...map.values()].filter((f) => f.downloadUrl)
 }
 
 export default function Home() {
@@ -78,6 +95,8 @@ export default function Home() {
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [lineFilter, setLineFilter] = useState<'all' | '1L' | '2L'>('all')
+  const [showDwg, setShowDwg] = useState(false)
+  const footerTaps = useRef({ count: 0, timer: null as ReturnType<typeof setTimeout> | null })
 
   useEffect(() => {
     fetchAllReleases()
@@ -85,6 +104,28 @@ export default function Home() {
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
+
+  useEffect(() => {
+    setShowDwg(localStorage.getItem(DWG_STORAGE_KEY) === '1')
+  }, [])
+
+  // Toque 5x no rodapé em até 1.5s para alternar o modo técnico (mostra .dwg)
+  const handleFooterTap = () => {
+    const taps = footerTaps.current
+    taps.count += 1
+    if (taps.timer) clearTimeout(taps.timer)
+    taps.timer = setTimeout(() => {
+      taps.count = 0
+    }, 1500)
+    if (taps.count >= 5) {
+      taps.count = 0
+      setShowDwg((prev) => {
+        const next = !prev
+        localStorage.setItem(DWG_STORAGE_KEY, next ? '1' : '0')
+        return next
+      })
+    }
+  }
 
   const results = useMemo(() => {
     if (!search) return files
@@ -298,6 +339,7 @@ export default function Home() {
                             file={file}
                             checked={selected.has(fileKey(file))}
                             onToggle={() => toggleSelect(fileKey(file))}
+                            showDwg={showDwg}
                           />
                         ))
                       )}
@@ -315,6 +357,7 @@ export default function Home() {
                             file={file}
                             checked={selected.has(fileKey(file))}
                             onToggle={() => toggleSelect(fileKey(file))}
+                            showDwg={showDwg}
                           />
                         ))
                       )}
@@ -327,7 +370,10 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="text-center py-4 text-xs text-gray-400 border-t border-gray-100">
+      <footer
+        onClick={handleFooterTap}
+        className="text-center py-4 text-xs text-gray-400 border-t border-gray-100 select-none"
+      >
         Portal Safra — Projetos de Colheita
       </footer>
     </div>
@@ -338,10 +384,12 @@ function FileCard({
   file,
   checked,
   onToggle,
+  showDwg,
 }: {
   file: ProjectFile
   checked: boolean
   onToggle: () => void
+  showDwg: boolean
 }) {
   return (
     <div
@@ -375,6 +423,20 @@ function FileCard({
           {formatSize(file.size)} · atualizado em {formatDate(file.updatedAt)}
         </p>
       </div>
+
+      {/* Download DWG (modo tecnico) */}
+      {showDwg && file.dwgUrl && (
+        <a
+          href={file.dwgUrl}
+          target="_blank"
+          rel="noreferrer"
+          download={file.dwgName}
+          className="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 rounded-lg transition-colors text-[10px] font-bold"
+          title="Download DWG"
+        >
+          DWG
+        </a>
+      )}
 
       {/* Download */}
       <a
