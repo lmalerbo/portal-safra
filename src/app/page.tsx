@@ -116,12 +116,10 @@ export default function Home() {
         const a = document.createElement('a')
         a.href = f.downloadUrl
         a.download = f.name
-        a.target = '_blank'
-        a.rel = 'noreferrer'
         document.body.appendChild(a)
         a.click()
         a.remove()
-      }, i * 400)
+      }, i * 800)
     })
   }
 
