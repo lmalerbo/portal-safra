@@ -77,6 +77,7 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [lineFilter, setLineFilter] = useState<'all' | '1L' | '2L'>('all')
 
   useEffect(() => {
     fetchAllReleases()
@@ -145,38 +146,39 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
       {/* Header */}
-      <header className="bg-green-700 text-white shadow-lg">
-        <div className="max-w-6xl mx-auto px-4 py-4 flex items-center gap-3">
-          <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
-            <svg className="w-6 h-6 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <header className="bg-green-700 text-white shadow-lg sticky top-0 z-10">
+        <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-3">
+          <div className="w-9 h-9 bg-white rounded-lg flex items-center justify-center shadow-sm flex-shrink-0">
+            <svg className="w-5 h-5 text-green-700" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
                 d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064" />
             </svg>
           </div>
           <div className="flex-1">
-            <h1 className="text-xl font-bold leading-tight">Portal Safra</h1>
+            <h1 className="text-lg sm:text-xl font-bold leading-tight">Portal Safra</h1>
             <p className="text-green-200 text-xs">Projetos de Colheita</p>
           </div>
         </div>
       </header>
 
-      <main className={`flex-1 flex flex-col items-center px-4 py-10 ${!showResults ? 'justify-center' : ''}`}>
+      <main className="flex-1 flex flex-col items-center px-3 sm:px-4 py-4 sm:py-10">
         <div className="w-full max-w-3xl">
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-            <h2 className="text-center text-lg font-semibold text-gray-800 mb-1">
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 sm:p-6">
+            <h2 className="text-center text-base sm:text-lg font-semibold text-gray-800 mb-1">
               Buscar projeto de colheita
             </h2>
-            <p className="text-center text-sm text-gray-400 mb-5">
+            <p className="text-center text-xs sm:text-sm text-gray-400 mb-4 sm:mb-5">
               Pesquise pelo nome ou código da fazenda
             </p>
 
             <input
               type="text"
               autoFocus
+              inputMode="search"
               placeholder="Buscar por nome ou código..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-sm border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+              className="w-full text-base border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
             />
 
             {!loading && !error && files.length > 0 && (
@@ -227,7 +229,7 @@ export default function Home() {
 
             {!loading && !error && showResults && (
               <>
-                <div className="flex items-center justify-between mt-5 mb-3">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-5 mb-3">
                   <p className="text-sm text-gray-500">
                     {results.length === 0 ? (
                       'Nenhum projeto encontrado'
@@ -243,7 +245,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={downloadAll}
-                      className="inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+                      className="hidden sm:inline-flex items-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
                     >
                       <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
@@ -253,6 +255,26 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {/* Filtro de linha (mobile) */}
+                {results.length > 0 && (
+                  <div className="flex gap-2 mb-3 md:hidden">
+                    {(['all', '1L', '2L'] as const).map((v) => (
+                      <button
+                        key={v}
+                        type="button"
+                        onClick={() => setLineFilter(v)}
+                        className={`flex-1 py-2 rounded-lg text-sm font-medium transition-colors border ${
+                          lineFilter === v
+                            ? 'bg-gray-700 text-white border-gray-700'
+                            : 'bg-white text-gray-600 border-gray-200'
+                        }`}
+                      >
+                        {v === 'all' ? 'Todos' : v === '1L' ? 'Linha 1' : 'Linha 2'}
+                      </button>
+                    ))}
+                  </div>
+                )}
 
                 {results.length === 0 ? (
                   <div className="bg-gray-50 rounded-2xl border border-gray-100 py-16 text-center text-gray-400">
@@ -265,7 +287,7 @@ export default function Home() {
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Coluna 1L */}
-                    <div className="space-y-2">
+                    <div className={`space-y-2 ${lineFilter === '2L' ? 'hidden md:block' : ''}`}>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">Linha 1</p>
                       {oneLine.length === 0 ? (
                         <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de Linha 1</p>
@@ -282,7 +304,7 @@ export default function Home() {
                     </div>
 
                     {/* Coluna 2L */}
-                    <div className="space-y-2">
+                    <div className={`space-y-2 ${lineFilter === '1L' ? 'hidden md:block' : ''}`}>
                       <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">Linha 2</p>
                       {twoLine.length === 0 ? (
                         <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de Linha 2</p>
@@ -305,7 +327,24 @@ export default function Home() {
         </div>
       </main>
 
-      <footer className="text-center py-4 text-xs text-gray-400 border-t border-gray-100">
+      {/* Barra fixa de download em lote (mobile) */}
+      {selected.size > 1 && (
+        <div className="sm:hidden fixed bottom-0 inset-x-0 p-3 bg-white border-t border-gray-200 shadow-lg">
+          <button
+            type="button"
+            onClick={downloadAll}
+            className="w-full inline-flex items-center justify-center gap-1.5 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white text-sm font-medium px-4 py-3 rounded-lg transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+            </svg>
+            Baixar selecionados ({selected.size})
+          </button>
+        </div>
+      )}
+
+      <footer className={`text-center py-4 text-xs text-gray-400 border-t border-gray-100 ${selected.size > 1 ? 'pb-20 sm:pb-4' : ''}`}>
         Portal Safra — Projetos de Colheita
       </footer>
     </div>
@@ -333,7 +372,7 @@ function FileCard({
         onChange={onToggle}
         title={`Selecionar ${file.farmName} ${file.lineType}`}
         aria-label={`Selecionar ${file.farmName} ${file.lineType}`}
-        className="accent-green-600 cursor-pointer flex-shrink-0"
+        className="w-5 h-5 accent-green-600 cursor-pointer flex-shrink-0"
       />
 
       {/* Info */}
@@ -348,7 +387,7 @@ function FileCard({
           </span>
           <span className="text-xs text-gray-400">{file.farmCode}</span>
         </div>
-        <p className="font-medium text-gray-800 text-sm truncate">{file.farmName}</p>
+        <p className="font-medium text-gray-800 text-sm leading-snug">{file.farmName}</p>
         <p className="text-xs text-gray-400">
           {formatSize(file.size)} · atualizado em {formatDate(file.updatedAt)}
         </p>
@@ -360,7 +399,7 @@ function FileCard({
         target="_blank"
         rel="noreferrer"
         download={file.name}
-        className="flex-shrink-0 inline-flex items-center justify-center w-9 h-9 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-lg transition-colors"
+        className="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-lg transition-colors"
         title="Download"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
