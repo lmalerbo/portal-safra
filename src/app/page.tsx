@@ -208,13 +208,6 @@ export default function Home() {
                   )}
                 </div>
 
-                {selected.size > 1 && (
-                  <p className="text-xs text-gray-400 mb-3 -mt-2">
-                    O navegador pode pedir permissão para baixar vários arquivos — clique em
-                    &quot;Permitir&quot; na primeira vez.
-                  </p>
-                )}
-
                 {results.length === 0 ? (
                   <div className="bg-gray-50 rounded-2xl border border-gray-100 py-16 text-center text-gray-400">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
