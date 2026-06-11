@@ -111,16 +111,16 @@ export default function Home() {
 
   const downloadAll = () => {
     const toDownload = files.filter((f) => selected.has(fileKey(f)))
-    toDownload.forEach((f, i) => {
-      setTimeout(() => {
-        const a = document.createElement('a')
-        a.href = f.downloadUrl
-        a.download = f.name
-        document.body.appendChild(a)
-        a.click()
-        a.remove()
-      }, i * 800)
-    })
+    for (const f of toDownload) {
+      const a = document.createElement('a')
+      a.href = f.downloadUrl
+      a.download = f.name
+      a.target = '_blank'
+      a.rel = 'noopener'
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+    }
   }
 
   const showResults = search.length > 0
@@ -207,6 +207,13 @@ export default function Home() {
                     </button>
                   )}
                 </div>
+
+                {selected.size > 1 && (
+                  <p className="text-xs text-gray-400 mb-3 -mt-2">
+                    O navegador pode pedir permissão para baixar vários arquivos — clique em
+                    &quot;Permitir&quot; na primeira vez.
+                  </p>
+                )}
 
                 {results.length === 0 ? (
                   <div className="bg-gray-50 rounded-2xl border border-gray-100 py-16 text-center text-gray-400">
