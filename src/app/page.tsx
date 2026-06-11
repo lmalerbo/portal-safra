@@ -16,6 +16,50 @@ function formatSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
+const RELEASES_REPO = 'lmalerbo/Expo_safra'
+const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.zip$/i
+
+function parseLinkHeader(header: string | null): Record<string, string> {
+  const links: Record<string, string> = {}
+  if (!header) return links
+  for (const part of header.split(',')) {
+    const match = part.match(/<([^>]+)>;\s*rel="([^"]+)"/)
+    if (match) links[match[2]] = match[1]
+  }
+  return links
+}
+
+async function fetchAllReleases(): Promise<any[]> {
+  const releases: any[] = []
+  let url: string | undefined = `https://api.github.com/repos/${RELEASES_REPO}/releases?per_page=100`
+  while (url) {
+    const res: Response = await fetch(url)
+    if (!res.ok) throw new Error(`Falha ao buscar releases (${res.status})`)
+    releases.push(...(await res.json()))
+    url = parseLinkHeader(res.headers.get('Link')).next
+  }
+  return releases
+}
+
+function releasesToFiles(releases: any[]): ProjectFile[] {
+  const files: ProjectFile[] = []
+  for (const release of releases) {
+    for (const asset of release.assets ?? []) {
+      const match = asset.name.match(ASSET_NAME_RE)
+      if (!match) continue
+      const [, farmCode, rawName, lineType] = match
+      files.push({
+        name: asset.name,
+        size: asset.size,
+        downloadUrl: asset.browser_download_url,
+        farmCode,
+        farmName: rawName.replace(/\./g, ' '),
+        lineType: lineType.toUpperCase() as '1L' | '2L',
+      })
+    }
+  }
+  return files
+}
 
 export default function Home() {
   const [files, setFiles] = useState<ProjectFile[]>([])
@@ -26,11 +70,8 @@ export default function Home() {
   const [search, setSearch] = useState('')
 
   useEffect(() => {
-    fetch('./files.json')
-      .then((r) => r.json())
-      .then((data) => {
-        setFiles(Array.isArray(data) ? data : data.files ?? [])
-      })
+    fetchAllReleases()
+      .then((releases) => setFiles(releasesToFiles(releases)))
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
@@ -211,7 +252,7 @@ export default function Home() {
                   </svg>
                   <p className="text-sm">
                     {files.length === 0
-                      ? 'Nenhum projeto disponível no SharePoint.'
+                      ? 'Nenhum projeto disponível no momento.'
                       : 'Selecione uma fazenda nos filtros para ver os projetos.'}
                   </p>
                 </div>
