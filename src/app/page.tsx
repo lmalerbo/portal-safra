@@ -123,6 +123,23 @@ export default function Home() {
     }
   }
 
+  const farmsSummary = useMemo(() => {
+    const farms = new Map<string, { name: string; updatedAt: string }>()
+    for (const f of files) {
+      const current = farms.get(f.farmCode)
+      if (!current || f.updatedAt > current.updatedAt) {
+        farms.set(f.farmCode, { name: f.farmName, updatedAt: f.updatedAt })
+      }
+    }
+    const list = [...farms.values()]
+    const lastUpdated = list.reduce(
+      (max, f) => (f.updatedAt > max ? f.updatedAt : max),
+      list[0]?.updatedAt ?? ''
+    )
+    const recent = [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).slice(0, 5)
+    return { total: list.length, lastUpdated, recent }
+  }, [files])
+
   const showResults = search.length > 0
 
   return (
@@ -161,6 +178,35 @@ export default function Home() {
               onChange={(e) => setSearch(e.target.value)}
               className="w-full text-sm border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
             />
+
+            {!loading && !error && files.length > 0 && (
+              <p className="text-center text-xs text-gray-400 mt-3">
+                <span className="font-medium text-gray-500">{farmsSummary.total}</span> fazenda
+                {farmsSummary.total !== 1 ? 's' : ''} disponíve
+                {farmsSummary.total !== 1 ? 'is' : 'l'} · atualizado em{' '}
+                {formatDate(farmsSummary.lastUpdated)}
+              </p>
+            )}
+
+            {!loading && !error && !showResults && farmsSummary.recent.length > 0 && (
+              <div className="mt-4">
+                <p className="text-xs font-medium text-gray-400 uppercase tracking-wide text-center mb-2">
+                  Atualizados recentemente
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  {farmsSummary.recent.map((f) => (
+                    <button
+                      key={f.name}
+                      type="button"
+                      onClick={() => setSearch(f.name)}
+                      className="text-xs font-medium text-gray-600 bg-gray-50 hover:bg-green-50 hover:text-green-700 border border-gray-200 hover:border-green-200 rounded-full px-3 py-1.5 transition-colors"
+                    >
+                      {f.name}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {loading && (
               <div className="flex items-center justify-center py-10 gap-3 text-gray-500">
