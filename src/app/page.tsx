@@ -270,7 +270,7 @@ export default function Home() {
                             : 'bg-white text-gray-600 border-gray-200'
                         }`}
                       >
-                        {v === 'all' ? 'Todos' : v === '1L' ? 'Linha 1' : 'Linha 2'}
+                        {v === 'all' ? 'Todos' : v === '1L' ? '1 Linha' : '2 Linha'}
                       </button>
                     ))}
                   </div>
@@ -288,9 +288,9 @@ export default function Home() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     {/* Coluna 1L */}
                     <div className={`space-y-2 ${lineFilter === '2L' ? 'hidden md:block' : ''}`}>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">Linha 1</p>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">1 Linha</p>
                       {oneLine.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de Linha 1</p>
+                        <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de 1 Linha</p>
                       ) : (
                         oneLine.map((file) => (
                           <FileCard
@@ -305,9 +305,9 @@ export default function Home() {
 
                     {/* Coluna 2L */}
                     <div className={`space-y-2 ${lineFilter === '1L' ? 'hidden md:block' : ''}`}>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">Linha 2</p>
+                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">2 Linha</p>
                       {twoLine.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de Linha 2</p>
+                        <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de 2 Linha</p>
                       ) : (
                         twoLine.map((file) => (
                           <FileCard
