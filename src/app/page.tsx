@@ -212,15 +212,30 @@ export default function Home() {
               Pesquise pelo nome ou código da fazenda
             </p>
 
-            <input
-              type="text"
-              autoFocus
-              inputMode="search"
-              placeholder="Buscar por nome ou código..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full text-base border border-gray-200 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
-            />
+            <div className="relative">
+              <input
+                type="text"
+                autoFocus
+                inputMode="search"
+                placeholder="Buscar por nome ou código..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                className="w-full text-base border border-gray-200 rounded-lg px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-green-400 focus:border-transparent"
+              />
+              {search && (
+                <button
+                  type="button"
+                  onClick={() => setSearch('')}
+                  aria-label="Limpar busca"
+                  title="Limpar busca"
+                  className="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600"
+                >
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              )}
+            </div>
 
             {!loading && !error && files.length > 0 && (
               <p className="text-center text-xs text-gray-400 mt-3">
