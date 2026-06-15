@@ -340,18 +340,18 @@ export default function Home() {
                     </svg>
                     <p className="text-sm">Nenhum projeto disponível para essa busca.</p>
                     <a
-                      href={`mailto:geo.pedra@pedraagroindustrial.com.br?subject=${encodeURIComponent(
-                        `Portal Safra - Solicitação de projeto: ${search}`
-                      )}&body=${encodeURIComponent(
-                        `Olá, gostaria de solicitar a disponibilização do projeto de colheita para a fazenda "${search}", que ainda não está disponível no Portal Safra.`
+                      href={`https://wa.me/5516996427394?text=${encodeURIComponent(
+                        `Olá! Gostaria de solicitar a disponibilização do projeto de colheita para a fazenda "${search}", que ainda não está disponível no Portal Safra.`
                       )}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
                       className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium text-green-700 hover:text-green-800 underline"
                     >
-                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
-                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M17.498 14.382c-.301-.15-1.767-.867-2.04-.966-.273-.101-.473-.15-.673.15-.197.295-.771.964-.944 1.162-.175.195-.349.21-.646.075-1.888-.95-3.13-1.696-4.378-3.85-.27-.448.27-.421.772-1.401.099-.198.05-.371-.075-.521-.123-.151-.6-1.443-.823-1.992-.218-.535-.44-.46-.6-.47-.149-.01-.32-.01-.494-.01-.174 0-.457.065-.697.315-.24.249-.916.892-.916 2.18 0 1.282 1.038 2.522 1.183 2.696.149.173 2.04 3.116 4.948 4.245 2.91 1.129 2.91.752 3.435.706.525-.049 1.692-.692 1.93-1.36.24-.668.24-1.242.166-1.36-.074-.123-.273-.198-.572-.348z" />
+                        <path d="M12 0C5.376 0 0 5.376 0 12c0 2.12.554 4.108 1.52 5.84L0 24l6.32-1.49A11.93 11.93 0 0012 24c6.624 0 12-5.376 12-12S18.624 0 12 0zm0 21.81c-2.063 0-4.025-.59-5.71-1.643l-.41-.255-4.227 1 .997-4.116-.27-.43A9.78 9.78 0 012.19 12c0-5.413 4.397-9.81 9.81-9.81 5.413 0 9.81 4.397 9.81 9.81 0 5.413-4.397 9.81-9.81 9.81z" />
                       </svg>
-                      Solicitar este projeto por e-mail
+                      Solicitar este projeto pelo WhatsApp
                     </a>
                   </div>
                 ) : (
