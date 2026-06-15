@@ -339,6 +339,20 @@ export default function Home() {
                         d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" />
                     </svg>
                     <p className="text-sm">Nenhum projeto disponível para essa busca.</p>
+                    <a
+                      href={`mailto:geo.pedra@pedraagroindustrial.com.br?subject=${encodeURIComponent(
+                        `Portal Safra - Solicitação de projeto: ${search}`
+                      )}&body=${encodeURIComponent(
+                        `Olá, gostaria de solicitar a disponibilização do projeto de colheita para a fazenda "${search}", que ainda não está disponível no Portal Safra.`
+                      )}`}
+                      className="inline-flex items-center gap-1.5 mt-4 text-sm font-medium text-green-700 hover:text-green-800 underline"
+                    >
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+                          d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Solicitar este projeto por e-mail
+                    </a>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
