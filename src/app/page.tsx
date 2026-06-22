@@ -13,8 +13,19 @@ interface ProjectFile {
   dwgName?: string
   dwgUrl?: string
   dwgSize?: number
-  isBloco?: boolean
-  blocoCods?: string[]
+}
+
+interface BlocoFile {
+  cods: string[]
+  farmNames: string[]
+  lineType: '1L' | '2L'
+  name: string
+  size: number
+  downloadUrl: string
+  updatedAt: string
+  dwgName?: string
+  dwgUrl?: string
+  dwgSize?: number
 }
 
 function formatSize(bytes: number): string {
@@ -60,54 +71,10 @@ async function fetchAllReleases(): Promise<any[]> {
   return releases
 }
 
-interface FileVersion {
-  farmName: string
-  name: string
-  size: number
-  downloadUrl: string
-  dwgName?: string
-  dwgUrl?: string
-  dwgSize?: number
-  updatedAt: string
-  isBloco: boolean
-  blocoCods?: string[]
-}
-
-function releasesToFiles(releases: any[]): ProjectFile[] {
-  // Cada fazenda+linha pode ter uma versao "regular" (arquivo individual) e/ou
-  // uma versao de "bloco" (Projeto Personalizado) — mantidas separadas e
-  // mescladas no fim, vencendo a mais recente (updated_at), já que uma pode
-  // substituir a outra sem o asset antigo ser removido do release.
-  const regular = new Map<string, FileVersion>()
-  const bloco = new Map<string, FileVersion>()
+function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: BlocoFile[] } {
+  const fileMap = new Map<string, ProjectFile>()
+  const blocoMap = new Map<string, BlocoFile>()
   const realNames = new Map<string, string>()
-
-  const applyAsset = (
-    target: Map<string, FileVersion>,
-    key: string,
-    ext: string,
-    asset: any,
-    base: Pick<FileVersion, 'farmName' | 'isBloco' | 'blocoCods'>
-  ) => {
-    const v: FileVersion = target.get(key) ?? {
-      ...base,
-      name: '',
-      size: 0,
-      downloadUrl: '',
-      updatedAt: asset.updated_at,
-    }
-    if (ext.toLowerCase() === 'zip') {
-      v.name = asset.name
-      v.size = asset.size
-      v.downloadUrl = asset.browser_download_url
-    } else {
-      v.dwgName = asset.name
-      v.dwgUrl = asset.browser_download_url
-      v.dwgSize = asset.size
-    }
-    if (asset.updated_at > v.updatedAt) v.updatedAt = asset.updated_at
-    target.set(key, v)
-  }
 
   for (const release of releases) {
     for (const asset of release.assets ?? []) {
@@ -117,52 +84,70 @@ function releasesToFiles(releases: any[]): ProjectFile[] {
         const lineType = lineTypeRaw.toUpperCase() as '1L' | '2L'
         const farmName = rawName.replace(/\./g, ' ')
         realNames.set(farmCode, farmName)
-        applyAsset(regular, `${farmCode}_${lineType}`, ext, asset, { farmName, isBloco: false })
+        const key = `${farmCode}_${lineType}`
+        const entry: ProjectFile = fileMap.get(key) ?? {
+          name: '',
+          size: 0,
+          downloadUrl: '',
+          farmCode,
+          farmName,
+          lineType,
+          updatedAt: asset.updated_at,
+        }
+        if (ext.toLowerCase() === 'zip') {
+          entry.name = asset.name
+          entry.size = asset.size
+          entry.downloadUrl = asset.browser_download_url
+        } else {
+          entry.dwgName = asset.name
+          entry.dwgUrl = asset.browser_download_url
+          entry.dwgSize = asset.size
+        }
+        if (asset.updated_at > entry.updatedAt) entry.updatedAt = asset.updated_at
+        fileMap.set(key, entry)
         continue
       }
+
       const m2 = asset.name.match(BLOCO_NAME_RE)
       if (m2) {
         const [, codsRaw, lineTypeRaw, ext] = m2
         const cods = codsRaw.split('+')
         const lineType = lineTypeRaw.toUpperCase() as '1L' | '2L'
-        for (const farmCode of cods) {
-          applyAsset(bloco, `${farmCode}_${lineType}`, ext, asset, {
-            farmName: `Bloco ${cods.join(' + ')}`,
-            isBloco: true,
-            blocoCods: cods,
-          })
+        const key = `${codsRaw}_${lineType}`
+        const entry: BlocoFile = blocoMap.get(key) ?? {
+          cods,
+          farmNames: [],
+          lineType,
+          name: '',
+          size: 0,
+          downloadUrl: '',
+          updatedAt: asset.updated_at,
         }
+        if (ext.toLowerCase() === 'zip') {
+          entry.name = asset.name
+          entry.size = asset.size
+          entry.downloadUrl = asset.browser_download_url
+        } else {
+          entry.dwgName = asset.name
+          entry.dwgUrl = asset.browser_download_url
+          entry.dwgSize = asset.size
+        }
+        if (asset.updated_at > entry.updatedAt) entry.updatedAt = asset.updated_at
+        blocoMap.set(key, entry)
       }
     }
   }
 
-  const files: ProjectFile[] = []
-  for (const key of new Set([...regular.keys(), ...bloco.keys()])) {
-    const r = regular.get(key)
-    const b = bloco.get(key)
-    const winner = !r ? b! : !b ? r : b.updatedAt > r.updatedAt ? b : r
-    if (!winner.downloadUrl) continue
-    const [farmCode, lineType] = key.split('_') as [string, '1L' | '2L']
-    files.push({
-      name: winner.name,
-      size: winner.size,
-      downloadUrl: winner.downloadUrl,
-      farmCode,
-      farmName: winner.isBloco ? realNames.get(farmCode) ?? winner.farmName : winner.farmName,
-      lineType,
-      updatedAt: winner.updatedAt,
-      dwgName: winner.dwgName,
-      dwgUrl: winner.dwgUrl,
-      dwgSize: winner.dwgSize,
-      isBloco: winner.isBloco,
-      blocoCods: winner.blocoCods,
-    })
-  }
-  return files
+  const files = [...fileMap.values()].filter((f) => f.downloadUrl)
+  const blocoFiles = [...blocoMap.values()]
+    .filter((b) => b.downloadUrl)
+    .map((b) => ({ ...b, farmNames: b.cods.map((c) => realNames.get(c) ?? c) }))
+  return { files, blocoFiles }
 }
 
 export default function Home() {
   const [files, setFiles] = useState<ProjectFile[]>([])
+  const [blocoFiles, setBlocoFiles] = useState<BlocoFile[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -173,7 +158,11 @@ export default function Home() {
 
   useEffect(() => {
     fetchAllReleases()
-      .then((releases) => setFiles(releasesToFiles(releases)))
+      .then((releases) => {
+        const { files, blocoFiles } = parseReleases(releases)
+        setFiles(files)
+        setBlocoFiles(blocoFiles)
+      })
       .catch((e: Error) => setError(e.message))
       .finally(() => setLoading(false))
   }, [])
@@ -216,6 +205,14 @@ export default function Home() {
     () => results.filter((f) => f.lineType === '2L').sort((a, b) => a.farmName.localeCompare(b.farmName, 'pt-BR')),
     [results]
   )
+
+  const blocoResults = useMemo(() => {
+    if (!search) return []
+    const q = search.toLowerCase()
+    return blocoFiles
+      .filter((b) => b.cods.some((c, i) => c.includes(q) || b.farmNames[i].toLowerCase().includes(q)))
+      .sort((a, b) => a.lineType.localeCompare(b.lineType))
+  }, [blocoFiles, search])
 
   const toggleSelect = (key: string) =>
     setSelected((prev) => {
@@ -360,12 +357,13 @@ export default function Home() {
               <>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mt-5 mb-3">
                   <p className="text-sm text-gray-500">
-                    {results.length === 0 ? (
+                    {results.length === 0 && blocoResults.length === 0 ? (
                       'Nenhum projeto encontrado'
                     ) : (
                       <>
-                        <span className="font-semibold text-gray-800">{results.length}</span>{' '}
-                        arquivo{results.length !== 1 ? 's' : ''} encontrado{results.length !== 1 ? 's' : ''}
+                        <span className="font-semibold text-gray-800">{results.length + blocoResults.length}</span>{' '}
+                        arquivo{results.length + blocoResults.length !== 1 ? 's' : ''} encontrado
+                        {results.length + blocoResults.length !== 1 ? 's' : ''}
                       </>
                     )}
                   </p>
@@ -405,7 +403,7 @@ export default function Home() {
                   </div>
                 )}
 
-                {results.length === 0 ? (
+                {results.length === 0 && blocoResults.length === 0 ? (
                   <div className="bg-gray-50 rounded-2xl border border-gray-100 py-16 text-center text-gray-400">
                     <svg className="w-12 h-12 mx-auto mb-3 text-gray-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5}
@@ -428,43 +426,67 @@ export default function Home() {
                     </a>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* Coluna 1L */}
-                    <div className={`space-y-2 ${lineFilter === '2L' ? 'hidden md:block' : ''}`}>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">1 Linha</p>
-                      {oneLine.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de 1 Linha</p>
-                      ) : (
-                        oneLine.map((file) => (
-                          <FileCard
-                            key={file.name}
-                            file={file}
-                            checked={selected.has(fileKey(file))}
-                            onToggle={() => toggleSelect(fileKey(file))}
-                            showDwg={showDwg}
-                          />
-                        ))
-                      )}
-                    </div>
+                  <>
+                    {results.length > 0 && (
+                      <>
+                        <p className="text-xs font-medium text-gray-400 uppercase tracking-wide px-1 mb-2">Padrão</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {/* Coluna 1L */}
+                          <div className={`space-y-2 ${lineFilter === '2L' ? 'hidden md:block' : ''}`}>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">1 Linha</p>
+                            {oneLine.length === 0 ? (
+                              <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de 1 Linha</p>
+                            ) : (
+                              oneLine.map((file) => (
+                                <FileCard
+                                  key={file.name}
+                                  file={file}
+                                  checked={selected.has(fileKey(file))}
+                                  onToggle={() => toggleSelect(fileKey(file))}
+                                  showDwg={showDwg}
+                                />
+                              ))
+                            )}
+                          </div>
 
-                    {/* Coluna 2L */}
-                    <div className={`space-y-2 ${lineFilter === '1L' ? 'hidden md:block' : ''}`}>
-                      <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">2 Linha</p>
-                      {twoLine.length === 0 ? (
-                        <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de 2 Linha</p>
-                      ) : (
-                        twoLine.map((file) => (
-                          <FileCard
-                            key={file.name}
-                            file={file}
-                            checked={selected.has(fileKey(file))}
-                            onToggle={() => toggleSelect(fileKey(file))}
-                            showDwg={showDwg}
-                          />
-                        ))
-                      )}
-                    </div>
-                  </div>
+                          {/* Coluna 2L */}
+                          <div className={`space-y-2 ${lineFilter === '1L' ? 'hidden md:block' : ''}`}>
+                            <p className="text-xs font-medium text-gray-500 uppercase tracking-wide px-1">2 Linha</p>
+                            {twoLine.length === 0 ? (
+                              <p className="text-xs text-gray-400 text-center py-6">Nenhum projeto de 2 Linha</p>
+                            ) : (
+                              twoLine.map((file) => (
+                                <FileCard
+                                  key={file.name}
+                                  file={file}
+                                  checked={selected.has(fileKey(file))}
+                                  onToggle={() => toggleSelect(fileKey(file))}
+                                  showDwg={showDwg}
+                                />
+                              ))
+                            )}
+                          </div>
+                        </div>
+                      </>
+                    )}
+
+                    {blocoResults.length > 0 && (
+                      <div className={results.length > 0 ? 'mt-6' : ''}>
+                        <p className="text-xs font-medium text-amber-600 uppercase tracking-wide px-1 mb-2">
+                          Personalizado
+                        </p>
+                        <div className="space-y-2">
+                          {blocoResults.map((bloco) => (
+                            <BlocoCard
+                              key={`${bloco.cods.join('+')}_${bloco.lineType}`}
+                              bloco={bloco}
+                              showDwg={showDwg}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </>
             )}
@@ -524,19 +546,6 @@ function FileCard({
         <p className="text-xs text-gray-400">
           {formatSize(file.size)} · atualizado em {formatDate(file.updatedAt)}
         </p>
-        {file.isBloco && (
-          <p
-            className="text-xs text-amber-600 font-medium mt-0.5"
-            title={`Projeto Personalizado — mesmo arquivo também no release de: ${
-              file.blocoCods?.filter((c) => c !== file.farmCode).join(', ') || '—'
-            }`}
-          >
-            🔗 Projeto Personalizado
-            {file.blocoCods && file.blocoCods.filter((c) => c !== file.farmCode).length > 0
-              ? ` · também em ${file.blocoCods.filter((c) => c !== file.farmCode).join(', ')}`
-              : ''}
-          </p>
-        )}
       </div>
 
       {/* Download DWG (modo tecnico) */}
@@ -560,6 +569,60 @@ function FileCard({
         rel="noreferrer"
         download={file.name}
         className="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 bg-green-600 hover:bg-green-700 active:bg-green-800 text-white rounded-lg transition-colors"
+        title="Download"
+      >
+        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2}
+            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
+        </svg>
+      </a>
+    </div>
+  )
+}
+
+function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
+  return (
+    <div className="bg-amber-50 rounded-xl border border-amber-200 px-3 py-3 flex items-center gap-3">
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2 mb-0.5">
+          <span
+            className={`text-xs font-bold px-2 py-0.5 rounded-full ${
+              bloco.lineType === '1L' ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-blue-700'
+            }`}
+          >
+            {bloco.lineType}
+          </span>
+          <span className="text-xs font-medium text-amber-700">🔗 Projeto Personalizado</span>
+        </div>
+        <p className="font-medium text-gray-800 text-sm leading-snug">
+          {bloco.cods.map((c, i) => `${c} ${bloco.farmNames[i]}`).join(' + ')}
+        </p>
+        <p className="text-xs text-gray-400">
+          {formatSize(bloco.size)} · atualizado em {formatDate(bloco.updatedAt)}
+        </p>
+      </div>
+
+      {/* Download DWG (modo tecnico) */}
+      {showDwg && bloco.dwgUrl && (
+        <a
+          href={bloco.dwgUrl}
+          target="_blank"
+          rel="noreferrer"
+          download={bloco.dwgName}
+          className="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 bg-gray-100 hover:bg-gray-200 active:bg-gray-300 text-gray-600 rounded-lg transition-colors text-[10px] font-bold"
+          title="Download DWG"
+        >
+          DWG
+        </a>
+      )}
+
+      {/* Download */}
+      <a
+        href={bloco.downloadUrl}
+        target="_blank"
+        rel="noreferrer"
+        download={bloco.name}
+        className="flex-shrink-0 inline-flex items-center justify-center w-10 h-10 bg-amber-600 hover:bg-amber-700 active:bg-amber-800 text-white rounded-lg transition-colors"
         title="Download"
       >
         <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
