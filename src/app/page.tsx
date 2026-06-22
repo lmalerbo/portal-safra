@@ -13,6 +13,8 @@ interface ProjectFile {
   dwgName?: string
   dwgUrl?: string
   dwgSize?: number
+  isBloco?: boolean
+  blocoCods?: string[]
 }
 
 function formatSize(bytes: number): string {
@@ -30,6 +32,10 @@ function fileKey(f: ProjectFile): string {
 
 const RELEASES_REPO = 'lmalerbo/Expo_safra'
 const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.(zip|dwg)$/i
+// Projeto Personalizado (bloco de 2+ fazendas que compartilham o mesmo arquivo de
+// exportação): nome sem fazenda no meio, ex "10471+10476_Exp1L.dwg" — o mesmo
+// arquivo é enviado duplicado para o release de cada fazenda do bloco.
+const BLOCO_NAME_RE = /^(\d+(?:\+\d+)+)_Exp(1L|2L)\.(zip|dwg)$/i
 const DWG_STORAGE_KEY = 'portal-safra-dwg'
 
 function parseLinkHeader(header: string | null): Record<string, string> {
@@ -54,38 +60,105 @@ async function fetchAllReleases(): Promise<any[]> {
   return releases
 }
 
+interface FileVersion {
+  farmName: string
+  name: string
+  size: number
+  downloadUrl: string
+  dwgName?: string
+  dwgUrl?: string
+  dwgSize?: number
+  updatedAt: string
+  isBloco: boolean
+  blocoCods?: string[]
+}
+
 function releasesToFiles(releases: any[]): ProjectFile[] {
-  const map = new Map<string, ProjectFile>()
+  // Cada fazenda+linha pode ter uma versao "regular" (arquivo individual) e/ou
+  // uma versao de "bloco" (Projeto Personalizado) — mantidas separadas e
+  // mescladas no fim, vencendo a mais recente (updated_at), já que uma pode
+  // substituir a outra sem o asset antigo ser removido do release.
+  const regular = new Map<string, FileVersion>()
+  const bloco = new Map<string, FileVersion>()
+  const realNames = new Map<string, string>()
+
+  const applyAsset = (
+    target: Map<string, FileVersion>,
+    key: string,
+    ext: string,
+    asset: any,
+    base: Pick<FileVersion, 'farmName' | 'isBloco' | 'blocoCods'>
+  ) => {
+    const v: FileVersion = target.get(key) ?? {
+      ...base,
+      name: '',
+      size: 0,
+      downloadUrl: '',
+      updatedAt: asset.updated_at,
+    }
+    if (ext.toLowerCase() === 'zip') {
+      v.name = asset.name
+      v.size = asset.size
+      v.downloadUrl = asset.browser_download_url
+    } else {
+      v.dwgName = asset.name
+      v.dwgUrl = asset.browser_download_url
+      v.dwgSize = asset.size
+    }
+    if (asset.updated_at > v.updatedAt) v.updatedAt = asset.updated_at
+    target.set(key, v)
+  }
+
   for (const release of releases) {
     for (const asset of release.assets ?? []) {
-      const match = asset.name.match(ASSET_NAME_RE)
-      if (!match) continue
-      const [, farmCode, rawName, lineTypeRaw, ext] = match
-      const lineType = lineTypeRaw.toUpperCase() as '1L' | '2L'
-      const key = `${farmCode}_${lineType}`
-      const entry: ProjectFile = map.get(key) ?? {
-        name: '',
-        size: 0,
-        downloadUrl: '',
-        farmCode,
-        farmName: rawName.replace(/\./g, ' '),
-        lineType,
-        updatedAt: asset.updated_at,
+      const m1 = asset.name.match(ASSET_NAME_RE)
+      if (m1) {
+        const [, farmCode, rawName, lineTypeRaw, ext] = m1
+        const lineType = lineTypeRaw.toUpperCase() as '1L' | '2L'
+        const farmName = rawName.replace(/\./g, ' ')
+        realNames.set(farmCode, farmName)
+        applyAsset(regular, `${farmCode}_${lineType}`, ext, asset, { farmName, isBloco: false })
+        continue
       }
-      if (ext.toLowerCase() === 'zip') {
-        entry.name = asset.name
-        entry.size = asset.size
-        entry.downloadUrl = asset.browser_download_url
-      } else {
-        entry.dwgName = asset.name
-        entry.dwgUrl = asset.browser_download_url
-        entry.dwgSize = asset.size
+      const m2 = asset.name.match(BLOCO_NAME_RE)
+      if (m2) {
+        const [, codsRaw, lineTypeRaw, ext] = m2
+        const cods = codsRaw.split('+')
+        const lineType = lineTypeRaw.toUpperCase() as '1L' | '2L'
+        for (const farmCode of cods) {
+          applyAsset(bloco, `${farmCode}_${lineType}`, ext, asset, {
+            farmName: `Bloco ${cods.join(' + ')}`,
+            isBloco: true,
+            blocoCods: cods,
+          })
+        }
       }
-      if (asset.updated_at > entry.updatedAt) entry.updatedAt = asset.updated_at
-      map.set(key, entry)
     }
   }
-  return [...map.values()].filter((f) => f.downloadUrl)
+
+  const files: ProjectFile[] = []
+  for (const key of new Set([...regular.keys(), ...bloco.keys()])) {
+    const r = regular.get(key)
+    const b = bloco.get(key)
+    const winner = !r ? b! : !b ? r : b.updatedAt > r.updatedAt ? b : r
+    if (!winner.downloadUrl) continue
+    const [farmCode, lineType] = key.split('_') as [string, '1L' | '2L']
+    files.push({
+      name: winner.name,
+      size: winner.size,
+      downloadUrl: winner.downloadUrl,
+      farmCode,
+      farmName: winner.isBloco ? realNames.get(farmCode) ?? winner.farmName : winner.farmName,
+      lineType,
+      updatedAt: winner.updatedAt,
+      dwgName: winner.dwgName,
+      dwgUrl: winner.dwgUrl,
+      dwgSize: winner.dwgSize,
+      isBloco: winner.isBloco,
+      blocoCods: winner.blocoCods,
+    })
+  }
+  return files
 }
 
 export default function Home() {
@@ -451,6 +524,19 @@ function FileCard({
         <p className="text-xs text-gray-400">
           {formatSize(file.size)} · atualizado em {formatDate(file.updatedAt)}
         </p>
+        {file.isBloco && (
+          <p
+            className="text-xs text-amber-600 font-medium mt-0.5"
+            title={`Projeto Personalizado — mesmo arquivo também no release de: ${
+              file.blocoCods?.filter((c) => c !== file.farmCode).join(', ') || '—'
+            }`}
+          >
+            🔗 Projeto Personalizado
+            {file.blocoCods && file.blocoCods.filter((c) => c !== file.farmCode).length > 0
+              ? ` · também em ${file.blocoCods.filter((c) => c !== file.farmCode).join(', ')}`
+              : ''}
+          </p>
+        )}
       </div>
 
       {/* Download DWG (modo tecnico) */}
