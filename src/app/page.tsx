@@ -637,7 +637,9 @@ function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
           <span className="text-xs font-medium text-amber-700">🔗 Projeto Personalizado</span>
         </div>
         <p className="font-medium text-gray-800 text-sm leading-snug">
-          {bloco.cods.map((c, i) => `${c} ${bloco.farmNames[i]}`).join(' + ')}
+          {bloco.cods
+            .map((c, i) => (bloco.farmNames[i] !== c ? `${c} ${bloco.farmNames[i]}` : c))
+            .join(' + ')}
         </p>
         <p className="text-xs text-gray-400">
           {formatSize(bloco.size)} · atualizado em {formatDate(bloco.updatedAt)}
