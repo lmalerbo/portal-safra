@@ -83,6 +83,12 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
   const mapaMap = new Map<string, { name: string; url: string }>()
 
   for (const release of releases) {
+    // Releases criados pelo fluxo de "Projeto Personalizado" (bloco) recebem
+    // name = nome real da fazenda (em vez de só o codigo) — usamos como
+    // fallback para blocos onde nenhuma fazenda tem arquivo individual.
+    if (release.name && release.name !== release.tag_name) {
+      realNames.set(release.tag_name, release.name)
+    }
     for (const asset of release.assets ?? []) {
       const m0 = asset.name.match(MAPA_NAME_RE)
       if (m0) {
