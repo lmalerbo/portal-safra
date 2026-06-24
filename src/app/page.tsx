@@ -13,6 +13,8 @@ interface ProjectFile {
   dwgName?: string
   dwgUrl?: string
   dwgSize?: number
+  mapaName?: string
+  mapaUrl?: string
 }
 
 interface BlocoFile {
@@ -26,6 +28,7 @@ interface BlocoFile {
   dwgName?: string
   dwgUrl?: string
   dwgSize?: number
+  mapas: { cod: string; farmName: string; name: string; url: string }[]
 }
 
 function formatSize(bytes: number): string {
@@ -47,6 +50,8 @@ const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.(zip|dwg)$/i
 // exportação): nome sem fazenda no meio, ex "10471+10476_Exp1L.dwg" — o mesmo
 // arquivo é enviado duplicado para o release de cada fazenda do bloco.
 const BLOCO_NAME_RE = /^(\d+(?:\+\d+)+)_Exp(1L|2L)\.(zip|dwg)$/i
+// Mapa em PDF da fazenda (um por fazenda, nao por linha), ex "10738_SAO.PEDRO.9_Exp.Mapa.pdf"
+const MAPA_NAME_RE = /^(\d+)_(.+)_Exp\.Mapa\.pdf$/i
 const DWG_STORAGE_KEY = 'portal-safra-dwg'
 
 function parseLinkHeader(header: string | null): Record<string, string> {
@@ -75,9 +80,17 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
   const fileMap = new Map<string, ProjectFile>()
   const blocoMap = new Map<string, BlocoFile>()
   const realNames = new Map<string, string>()
+  const mapaMap = new Map<string, { name: string; url: string }>()
 
   for (const release of releases) {
     for (const asset of release.assets ?? []) {
+      const m0 = asset.name.match(MAPA_NAME_RE)
+      if (m0) {
+        const [, farmCode] = m0
+        mapaMap.set(farmCode, { name: asset.name, url: asset.browser_download_url })
+        continue
+      }
+
       const m1 = asset.name.match(ASSET_NAME_RE)
       if (m1) {
         const [, farmCode, rawName, lineTypeRaw, ext] = m1
@@ -117,6 +130,7 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
         const entry: BlocoFile = blocoMap.get(key) ?? {
           cods,
           farmNames: [],
+          mapas: [],
           lineType,
           name: '',
           size: 0,
@@ -138,10 +152,21 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
     }
   }
 
-  const files = [...fileMap.values()].filter((f) => f.downloadUrl)
+  const files = [...fileMap.values()]
+    .filter((f) => f.downloadUrl)
+    .map((f) => {
+      const mapa = mapaMap.get(f.farmCode)
+      return mapa ? { ...f, mapaName: mapa.name, mapaUrl: mapa.url } : f
+    })
   const blocoFiles = [...blocoMap.values()]
     .filter((b) => b.downloadUrl)
-    .map((b) => ({ ...b, farmNames: b.cods.map((c) => realNames.get(c) ?? c) }))
+    .map((b) => ({
+      ...b,
+      farmNames: b.cods.map((c) => realNames.get(c) ?? c),
+      mapas: b.cods
+        .filter((c) => mapaMap.has(c))
+        .map((c) => ({ cod: c, farmName: realNames.get(c) ?? c, ...mapaMap.get(c)! })),
+    }))
   return { files, blocoFiles }
 }
 
@@ -546,6 +571,23 @@ function FileCard({
         <p className="text-xs text-gray-400">
           {formatSize(file.size)} · atualizado em {formatDate(file.updatedAt)}
         </p>
+        {file.mapaUrl && (
+          <p className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
+            <span>🗺️ Mapa</span>
+            <a href={file.mapaUrl} target="_blank" rel="noreferrer" className="underline hover:text-indigo-800">
+              Ver
+            </a>
+            <a
+              href={file.mapaUrl}
+              download={file.mapaName}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-indigo-800"
+            >
+              Baixar
+            </a>
+          </p>
+        )}
       </div>
 
       {/* Download DWG (modo tecnico) */}
@@ -600,6 +642,23 @@ function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
         <p className="text-xs text-gray-400">
           {formatSize(bloco.size)} · atualizado em {formatDate(bloco.updatedAt)}
         </p>
+        {bloco.mapas.map((mapa) => (
+          <p key={mapa.cod} className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
+            <span>🗺️ Mapa {mapa.cod}</span>
+            <a href={mapa.url} target="_blank" rel="noreferrer" className="underline hover:text-indigo-800">
+              Ver
+            </a>
+            <a
+              href={mapa.url}
+              download={mapa.name}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-indigo-800"
+            >
+              Baixar
+            </a>
+          </p>
+        ))}
       </div>
 
       {/* Download DWG (modo tecnico) */}
