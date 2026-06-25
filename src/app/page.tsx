@@ -44,6 +44,14 @@ function fileKey(f: ProjectFile): string {
   return `${f.farmCode}_${f.lineType}`
 }
 
+// O asset do GitHub Releases sempre vem com Content-Disposition: attachment e sem
+// header CORS, então o navegador forca download mesmo num link target="_blank" sem
+// o atributo download — o Google Docs Viewer busca o PDF no servidor dele (sem
+// depender de CORS do nosso lado) e renderiza inline em vez de baixar.
+function mapaViewerUrl(url: string): string {
+  return `https://docs.google.com/viewer?url=${encodeURIComponent(url)}&embedded=true`
+}
+
 const RELEASES_REPO = 'lmalerbo/Expo_safra'
 const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.(zip|dwg)$/i
 // Projeto Personalizado (bloco de 2+ fazendas que compartilham o mesmo arquivo de
@@ -580,7 +588,12 @@ function FileCard({
         {file.mapaUrl && (
           <p className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
             <span>🗺️ Mapa</span>
-            <a href={file.mapaUrl} target="_blank" rel="noreferrer" className="underline hover:text-indigo-800">
+            <a
+              href={mapaViewerUrl(file.mapaUrl)}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-indigo-800"
+            >
               Ver
             </a>
             <a
@@ -653,7 +666,12 @@ function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
         {bloco.mapas.map((mapa) => (
           <p key={mapa.cod} className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
             <span>🗺️ Mapa {mapa.cod}</span>
-            <a href={mapa.url} target="_blank" rel="noreferrer" className="underline hover:text-indigo-800">
+            <a
+              href={mapaViewerUrl(mapa.url)}
+              target="_blank"
+              rel="noreferrer"
+              className="underline hover:text-indigo-800"
+            >
               Ver
             </a>
             <a
