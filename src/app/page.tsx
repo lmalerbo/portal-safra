@@ -28,6 +28,8 @@ interface BlocoFile {
   dwgName?: string
   dwgUrl?: string
   dwgSize?: number
+  mapaName?: string
+  mapaUrl?: string
   mapas: { cod: string; farmName: string; name: string; url: string }[]
 }
 
@@ -60,6 +62,9 @@ const ASSET_NAME_RE = /^(\d+)_(.+)_Exp(1L|2L)\.(zip|dwg)$/i
 const BLOCO_NAME_RE = /^(\d+(?:\+\d+)+)_Exp(1L|2L)\.(zip|dwg)$/i
 // Mapa em PDF da fazenda (um por fazenda, nao por linha), ex "10738_SAO.PEDRO.9_Exp.Mapa.pdf"
 const MAPA_NAME_RE = /^(\d+)_(.+)_Exp\.Mapa\.pdf$/i
+// Mapa em PDF do bloco (cobre todas as fazendas do projeto personalizado),
+// ex "10051+10187+10188+10189_Exp.Mapa.pdf" — tem prioridade sobre mapas individuais
+const BLOCO_MAPA_NAME_RE = /^(\d+(?:\+\d+)+)_Exp\.Mapa\.pdf$/i
 const DWG_STORAGE_KEY = 'portal-safra-dwg'
 
 function parseLinkHeader(header: string | null): Record<string, string> {
@@ -89,6 +94,7 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
   const blocoMap = new Map<string, BlocoFile>()
   const realNames = new Map<string, string>()
   const mapaMap = new Map<string, { name: string; url: string }>()
+  const blocoMapaMap = new Map<string, { name: string; url: string }>()
 
   for (const release of releases) {
     // Releases criados pelo fluxo de "Projeto Personalizado" (bloco) recebem
@@ -98,6 +104,13 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
       realNames.set(release.tag_name, release.name)
     }
     for (const asset of release.assets ?? []) {
+      const mb = asset.name.match(BLOCO_MAPA_NAME_RE)
+      if (mb) {
+        const [, codsRaw] = mb
+        blocoMapaMap.set(codsRaw, { name: asset.name, url: asset.browser_download_url })
+        continue
+      }
+
       const m0 = asset.name.match(MAPA_NAME_RE)
       if (m0) {
         const [, farmCode] = m0
@@ -174,13 +187,22 @@ function parseReleases(releases: any[]): { files: ProjectFile[]; blocoFiles: Blo
     })
   const blocoFiles = [...blocoMap.values()]
     .filter((b) => b.downloadUrl)
-    .map((b) => ({
-      ...b,
-      farmNames: b.cods.map((c) => realNames.get(c) ?? c),
-      mapas: b.cods
-        .filter((c) => mapaMap.has(c))
-        .map((c) => ({ cod: c, farmName: realNames.get(c) ?? c, ...mapaMap.get(c)! })),
-    }))
+    .map((b) => {
+      const codsRaw = b.cods.join('+')
+      const blocoMapa = blocoMapaMap.get(codsRaw)
+      return {
+        ...b,
+        farmNames: b.cods.map((c) => realNames.get(c) ?? c),
+        mapaName: blocoMapa?.name,
+        mapaUrl: blocoMapa?.url,
+        // mapas individuais só como fallback quando não existe mapa do bloco
+        mapas: blocoMapa
+          ? []
+          : b.cods
+              .filter((c) => mapaMap.has(c))
+              .map((c) => ({ cod: c, farmName: realNames.get(c) ?? c, ...mapaMap.get(c)! })),
+      }
+    })
   return { files, blocoFiles }
 }
 
@@ -663,11 +685,11 @@ function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
         <p className="text-xs text-gray-400">
           {formatSize(bloco.size)} · atualizado em {formatDate(bloco.updatedAt)}
         </p>
-        {bloco.mapas.map((mapa) => (
-          <p key={mapa.cod} className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
-            <span>🗺️ Mapa {mapa.cod}</span>
+        {bloco.mapaUrl && (
+          <p className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
+            <span>🗺️ Mapa</span>
             <a
-              href={mapaViewerUrl(mapa.url)}
+              href={mapaViewerUrl(bloco.mapaUrl)}
               target="_blank"
               rel="noreferrer"
               className="underline hover:text-indigo-800"
@@ -675,8 +697,8 @@ function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
               Ver
             </a>
             <a
-              href={mapa.url}
-              download={mapa.name}
+              href={bloco.mapaUrl}
+              download={bloco.mapaName}
               target="_blank"
               rel="noreferrer"
               className="underline hover:text-indigo-800"
@@ -684,7 +706,30 @@ function BlocoCard({ bloco, showDwg }: { bloco: BlocoFile; showDwg: boolean }) {
               Baixar
             </a>
           </p>
-        ))}
+        )}
+        {!bloco.mapaUrl &&
+          bloco.mapas.map((mapa) => (
+            <p key={mapa.cod} className="text-xs text-indigo-600 font-medium mt-0.5 flex items-center gap-2">
+              <span>🗺️ Mapa {mapa.cod}</span>
+              <a
+                href={mapaViewerUrl(mapa.url)}
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-indigo-800"
+              >
+                Ver
+              </a>
+              <a
+                href={mapa.url}
+                download={mapa.name}
+                target="_blank"
+                rel="noreferrer"
+                className="underline hover:text-indigo-800"
+              >
+                Baixar
+              </a>
+            </p>
+          ))}
       </div>
 
       {/* Download DWG (modo tecnico) */}
